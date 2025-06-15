@@ -24,53 +24,7 @@
       </div>
     </div>
     <script>
-
-      /* -----------------------------------------------------------------
-   Persistent intranote_uid cookie + fetch-patch for Unity WebGL
-   ----------------------------------------------------------------- */
-(function () {
-  const COOKIE_NAME = 'intranote_uid';
-  const DAYS_TO_LIVE = 30;                 // cookie lifetime
-
-  /* RFC-4122 v4 UUID ➜ hex without dashes */
-  function uuidHex () {
-      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(
-        /[018]/g,
-        c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-      );
-    }
-
-    /* read cookie value, or undefined */
-    function getCookie (name) {
-      return document.cookie
-        .split(';')
-        .map(c => c.trim())
-        .find(c => c.startsWith(name + '='))
-        ?.split('=')[1];
-    }
-
-    /* write cookie */
-    function setCookie (name, value, days) {
-      const expires = new Date(Date.now() + days * 864e5).toUTCString();
-      document.cookie =
-        `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
-    }
-
-    /* 1️⃣  Guarantee the cookie exists */
-    if (!getCookie(COOKIE_NAME)) {
-      setCookie(COOKIE_NAME, uuidHex(), DAYS_TO_LIVE);
-    }
-
-    /* 2️⃣  Monkey-patch fetch so cookies travel with UnityWebRequest */
-    if (window.fetch) {
-      const originalFetch = window.fetch;
-      window.fetch = function (url, options = {}) {
-        if (!options.credentials) options.credentials = 'include';   // **key line**
-        return originalFetch(url, options);
-      };
-    }
-  })();
-
+      
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
       var loadingBar = document.querySelector("#unity-loading-bar");
