@@ -1,166 +1,169 @@
 <!DOCTYPE html>
 <html lang="en-us">
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <title>Unity WebGL Player | IntraNote 1.0</title>
-  <link rel="shortcut icon" href="TemplateData/favicon.ico">
-  <link rel="stylesheet" href="TemplateData/style.css">
-  <style>
-    /* 让容器占满屏幕并居中子元素，背景黑色形成黑边 */
-    #unity-container.fullscreen {
-      position: fixed; inset: 0;
-      background: #000;
-      display: flex; align-items: center; justify-content: center;
-    }
-  </style>
-</head>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Unity WebGL Player | IntraNote 1.0</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico" />
+    <link rel="stylesheet" href="TemplateData/style.css" />
+    <style>
+      /* 让容器占满屏幕并居中子元素，背景黑色形成黑边 */
+      #unity-container.fullscreen {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
 
-<body>
-  <div id="unity-container" class="unity-desktop">
-    <canvas id="unity-canvas" width="1920" height="1080" tabindex="-1"></canvas>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width="1920" height="1080" tabindex="-1"></canvas>
 
-    <div id="unity-loading-bar">
-      <div id="unity-logo"></div>
-      <div id="unity-progress-bar-empty">
-        <div id="unity-progress-bar-full"></div>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+
+      <div id="unity-warning"></div>
+
+      <div id="unity-footer">
+        <div id="unity-webgl-logo"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">IntraNote 1.0</div>
       </div>
     </div>
 
-    <div id="unity-warning"></div>
+    <script>
+      /* ========== DOM 变量 ========== */
+      const container = document.querySelector("#unity-container");
+      const canvas = document.querySelector("#unity-canvas");
+      const loadingBar = document.querySelector("#unity-loading-bar");
+      const progressBarFull = document.querySelector("#unity-progress-bar-full");
+      const fullscreenBtn = document.querySelector("#unity-fullscreen-button");
+      const warningBanner = document.querySelector("#unity-warning");
 
-    <div id="unity-footer">
-      <div id="unity-webgl-logo"></div>
-      <div id="unity-fullscreen-button"></div>
-      <div id="unity-build-title">IntraNote&nbsp;1.0</div>
-    </div>
-  </div>
-
-  <script>
-    /* ========== DOM 变量 ========== */
-    const container       = document.querySelector("#unity-container");
-    const canvas          = document.querySelector("#unity-canvas");
-    const loadingBar      = document.querySelector("#unity-loading-bar");
-    const progressBarFull = document.querySelector("#unity-progress-bar-full");
-    const fullscreenBtn   = document.querySelector("#unity-fullscreen-button");
-    const warningBanner   = document.querySelector("#unity-warning");
-
-    /* ★★★ ① 追加：缩放补偿函数 ★★★ */
-    function injectPointerFix() {
-      // 每次调用都重新计算（应对 Gather / Meet 动态缩放）
-      const rect   = canvas.getBoundingClientRect();
-      const scaleX = rect.width  / canvas.width;   // e.g. 0.8
-      const scaleY = rect.height / canvas.height;  // 往往二者相等
-
-      // 若几乎没缩放就不处理
-      if (Math.abs(scaleX - 1) < 0.01 && Math.abs(scaleY - 1) < 0.01) return;
-
-      // 捕获阶段修改 clientX / clientY，再交给 Unity
-      const types = ["pointerdown","pointermove","pointerup","click"];
-      function rebase(e) {
-        e.clientX = (e.clientX - rect.left) / scaleX + rect.left;
-        e.clientY = (e.clientY - rect.top ) / scaleY + rect.top;
+      /* ========== 警告条 ========== */
+      function unityShowBanner(msg, type) {
+        function toggle() {
+          warningBanner.style.display = warningBanner.children.length ? "block" : "none";
+        }
+        const div = document.createElement("div");
+        div.innerHTML = msg;
+        div.style = `background:${type === "error" ? "red" : "yellow"};padding:10px;`;
+        warningBanner.appendChild(div);
+        if (type !== "error") setTimeout(() => {
+          warningBanner.removeChild(div);
+          toggle();
+        }, 5000);
+        toggle();
       }
-      types.forEach(t => canvas.addEventListener(t, rebase, true));
-    }
 
-    /* ========== 警告条 ========== */
-    function unityShowBanner(msg, type) {
-      function toggle() { warningBanner.style.display = warningBanner.children.length ? "block" : "none"; }
-      const div = document.createElement("div");
-      div.innerHTML = msg;
-      div.style = `background:${type==="error"?"red":"yellow"};padding:10px;`;
-      warningBanner.appendChild(div);
-      if (type !== "error") setTimeout(()=>{warningBanner.removeChild(div);toggle();},5000);
-      toggle();
-    }
+      /* ========== Unity 配置 ========== */
+      const buildUrl = "Build";
+      const loaderUrl = `${buildUrl}/webgl-built.loader.js`;
+      const config = {
+        dataUrl: `${buildUrl}/webgl-built.data`,
+        frameworkUrl: `${buildUrl}/webgl-built.framework.js`,
+        codeUrl: `${buildUrl}/webgl-built.wasm`,
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Carnegie Mellon University",
+        productName: "IntraNote 1.0",
+        productVersion: "0.1",
+        showBanner: unityShowBanner,
+        matchWebGLToCanvasSize: false       // 我们手动控制渲染分辨率
+      };
 
-    /* ========== Unity 配置 ========== */
-    const buildUrl  = "Build";
-    const loaderUrl = `${buildUrl}/webgl-built.loader.js`;
-    const config    = {
-      dataUrl:        `${buildUrl}/webgl-built.data`,
-      frameworkUrl:   `${buildUrl}/webgl-built.framework.js`,
-      codeUrl:        `${buildUrl}/webgl-built.wasm`,
-      streamingAssetsUrl: "StreamingAssets",
-      companyName:    "Carnegie Mellon University",
-      productName:    "IntraNote 1.0",
-      productVersion: "0.1",
-      showBanner:     unityShowBanner,
-      matchWebGLToCanvasSize: false           // 我们自行控制渲染分辨率
-    };
+      /* ========== 设备判定：移动端保持默认全屏 ========== */
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        const meta = document.createElement("meta");
+        meta.name = "viewport";
+        meta.content =
+          "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
+        document.head.appendChild(meta);
 
-    /* ========== 设备判定：移动端保持默认全屏 ========== */
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      const meta   = document.createElement("meta");
-      meta.name    = "viewport";
-      meta.content = "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
-      document.head.appendChild(meta);
-
-      container.className = "unity-mobile";
-      canvas.className    = "unity-mobile";
-    } else {
-      /* ★ 新增：桌面初始小窗 960×600 ★ */
-      canvas.style.width  = "960px";
-      canvas.style.height = "600px";
-    }
-
-    loadingBar.style.display = "block";
-
-    /* ========== 16∶9 Letterbox 适配函数 ========== */
-    function fitLetterbox() {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const targetAspect = 16 / 9;
-      let cw = w, ch = w / targetAspect;     // 先按宽度等比缩放
-      if (ch > h) {                          // 高度溢出 → 以高度为基准
-        ch = h;
-        cw = h * targetAspect;
+        container.className = "unity-mobile";
+        canvas.className = "unity-mobile";
+      } else {
+        /* 桌面初始小窗 960×600 */
+        canvas.style.width = "960px";
+        canvas.style.height = "600px";
       }
-      canvas.style.width  = `${cw}px`;
-      canvas.style.height = `${ch}px`;
-      injectPointerFix();   
-    }
 
-    /* ========== 加载 Unity 实例 ========== */
-    const script = document.createElement("script");
-    script.src = loaderUrl;
-    script.onload = () => {
-      createUnityInstance(
-        canvas, config,
-        (progress) => progressBarFull.style.width = `${100 * progress}%`
-      ).then((unityInstance) => {
-        loadingBar.style.display = "none";
-        injectPointerFix();  
-
-        /* 初始化渲染目标：固定 1920×1080 */
-        if (unityInstance.SendMessage) {
-          unityInstance.SendMessage("__Internal", "SetCanvasSize", "1920,1080");
+      /* ========== Letterbox 适配函数，同步 CSS & 渲染分辨率 ========== */
+      let unityInstanceGlobal = null; // 存储实例，供 resize 调用
+      function fitLetterbox() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const targetAspect = 16 / 9;
+        let cw = w;
+        let ch = w / targetAspect;
+        if (ch > h) {
+          ch = h;
+          cw = h * targetAspect;
         }
 
-        /* 全屏按钮 —— 进入全屏并开启黑边 letterbox */
-        fullscreenBtn.onclick = () => {
-          unityInstance.SetFullscreen(1);              // 浏览器全屏
-          container.classList.add("fullscreen");       // 让容器占满屏幕并黑底
-          fitLetterbox();                              // 初次计算
-        };
+        /* ① CSS 尺寸 */
+        canvas.style.width = `${cw}px`;
+        canvas.style.height = `${ch}px`;
 
-        /* 退出全屏时还原 */
-        document.addEventListener("fullscreenchange", () => {
-          if (!document.fullscreenElement) {
-            container.classList.remove("fullscreen");
-            canvas.style.width  = "960px";             // 回到初始窗口尺寸
-            canvas.style.height = "600px";
-          }
-        });
+        /* ② 渲染 / 输入 分辨率同步 */
+        if (unityInstanceGlobal?.Module?.setCanvasSize) {
+          unityInstanceGlobal.Module.setCanvasSize(cw, ch, false); // 立即生效
+        } else {
+          // 旧版本 Unity fallback
+          canvas.width = cw;
+          canvas.height = ch;
+        }
+      }
 
-        /* 全屏状态下随窗口尺寸变化自适应 */
-        window.addEventListener("resize", () => {
-          if (document.fullscreenElement) fitLetterbox();
-        });
-      }).catch(alert);
-    };
-    document.body.appendChild(script);
-  </script>
-</body>
+      loadingBar.style.display = "block";
+
+      /* ========== 加载 Unity 实例 ========== */
+      const script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = `${100 * progress}%`;
+        })
+          .then((unityInstance) => {
+            unityInstanceGlobal = unityInstance; // 设置全局引用
+            loadingBar.style.display = "none";
+
+            /* 初次同步一次（桌面小窗） */
+            if (!isMobile) fitLetterbox();
+
+            /* 全屏按钮 —— 进入全屏并开启黑边 letterbox */
+            fullscreenBtn.onclick = () => {
+              unityInstance.SetFullscreen(1); // 浏览器全屏
+              container.classList.add("fullscreen");
+              fitLetterbox(); // 首次计算
+            };
+
+            /* 退出全屏时还原 */
+            document.addEventListener("fullscreenchange", () => {
+              if (!document.fullscreenElement) {
+                container.classList.remove("fullscreen");
+                canvas.style.width = "960px";
+                canvas.style.height = "600px";
+                fitLetterbox(); // 同步 960×600 的渲染分辨率
+              }
+            });
+
+            /* 全屏状态下随窗口尺寸变化自适应 */
+            window.addEventListener("resize", () => {
+              if (document.fullscreenElement) fitLetterbox();
+            });
+          })
+          .catch(alert);
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
 </html>
