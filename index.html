@@ -67,6 +67,7 @@
         productName: "IntraNote 1.0",
         productVersion: "0.1",
         showBanner: unityShowBanner,
+        matchWebGLToCanvasSize: false,
       };
 
       // By default, Unity keeps WebGL canvas render target size matched with
@@ -100,29 +101,33 @@
 
       loadingBar.style.display = "block";
 
+      function force1080p(unityInstance) {
+        // 取“屏幕实际可用”与 1920×1080 的较小值，防止小屏幕溢出
+        const targetWidth  = Math.min(screen.width,  1920);
+        const targetHeight = Math.min(screen.height, 1080);
+
+        // 1️⃣ 调整逻辑分辨率（渲染目标）
+        unityInstance.SendMessage("__Internal", "SetCanvasSize", `${targetWidth},${targetHeight}`);
+
+        // 2️⃣ 调整 DOM / CSS（否则只会拉伸）
+        canvas.width  = targetWidth;
+        canvas.height = targetHeight;
+        canvas.style.width  = targetWidth  + "px";
+        canvas.style.height = targetHeight + "px";
+      }
+
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
           progressBarFull.style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
-                loadingBar.style.display = "none";
-                fullscreenButton.onclick = () => {
-                unityInstance.SetFullscreen(1);
-
-                // 强制设置画布为 1080p 分辨率
-                setTimeout(() => {
-                  canvas.width = 1920;
-                  canvas.height = 1080;
-                  canvas.style.width = "1920px";
-                  canvas.style.height = "1080px";
-                  unityInstance.SendMessage("YourManagerGameObject", "OnResolutionChanged"); // 可选：如果你有处理逻辑
-                }, 100); // 等待 Unity 全屏完成，可以根据需要调大这个延迟
-              };
-              }).catch((message) => {
-                alert(message);
-              });
-            };
+        }).then((unityInstance) => {
+          loadingBar.style.display = "none";
+          fullscreenButton.onclick = () => {
+            unityInstance.SetFullscreen(1);            // 先进入浏览器全屏
+            setTimeout(() => force1080p(unityInstance), 100);  // 稍等 100 ms 再改分辨率
+          };
+        }).catch((message) => { alert(message); });
 
       document.body.appendChild(script);
 
