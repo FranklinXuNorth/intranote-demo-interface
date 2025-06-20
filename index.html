@@ -7,18 +7,17 @@
   <link rel="shortcut icon" href="TemplateData/favicon.ico">
   <link rel="stylesheet" href="TemplateData/style.css">
   <style>
-    /* ===== 通用 ===== */
-    html,body{margin:0;padding:0;overflow:hidden}
-    /* 让容器在全屏时占满视口，背景黑色形成黑边（letter‑box） */
-    #unity-container.fullscreen{
-      position:fixed;inset:0;background:#000;
-      display:flex;align-items:center;justify-content:center;
+    /* 让容器占满屏幕并居中子元素，背景黑色形成黑边 */
+    #unity-container.fullscreen {
+      position: fixed; inset: 0;
+      background: #000;
+      display: flex; align-items: center; justify-content: center;
     }
   </style>
 </head>
+
 <body>
-  <!-- 统一的“基准分辨率”容器 (1920×1080) -->
-  <div id="unity-container" class="unity-desktop" style="width:1920px;height:1080px;">
+  <div id="unity-container" class="unity-desktop">
     <canvas id="unity-canvas" width="1920" height="1080" tabindex="-1"></canvas>
 
     <div id="unity-loading-bar">
@@ -38,10 +37,6 @@
   </div>
 
   <script>
-    /* ========== 常量 ========== */
-    const BASE_W = 1920;      // 内部渲染宽度
-    const BASE_H = 1080;      // 内部渲染高度
-
     /* ========== DOM 变量 ========== */
     const container       = document.querySelector("#unity-container");
     const canvas          = document.querySelector("#unity-canvas");
@@ -52,12 +47,12 @@
 
     /* ========== 警告条 ========== */
     function unityShowBanner(msg, type) {
-      function toggle() {warningBanner.style.display = warningBanner.children.length?"block":"none";}
-      const div=document.createElement("div");
-      div.innerHTML=msg;
-      div.style=`background:${type==="error"?"red":"yellow"};padding:10px;`;
+      function toggle() { warningBanner.style.display = warningBanner.children.length ? "block" : "none"; }
+      const div = document.createElement("div");
+      div.innerHTML = msg;
+      div.style = `background:${type==="error"?"red":"yellow"};padding:10px;`;
       warningBanner.appendChild(div);
-      if(type!=="error")setTimeout(()=>{warningBanner.removeChild(div);toggle();},5000);
+      if (type !== "error") setTimeout(()=>{warningBanner.removeChild(div);toggle();},5000);
       toggle();
     }
 
@@ -73,67 +68,75 @@
       productName:    "IntraNote 1.0",
       productVersion: "0.1",
       showBanner:     unityShowBanner,
-      matchWebGLToCanvasSize:false           // 我们手动控制分辨率 & 输入映射
+      matchWebGLToCanvasSize: false           // 我们自行控制渲染分辨率
     };
 
     /* ========== 设备判定：移动端保持默认全屏 ========== */
-    if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){
-      const meta=document.createElement("meta");
-      meta.name="viewport";
-      meta.content="width=device-width,height=device-height,initial-scale=1.0,user-scalable=no,shrink-to-fit=yes";
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      const meta   = document.createElement("meta");
+      meta.name    = "viewport";
+      meta.content = "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
       document.head.appendChild(meta);
-      container.className="unity-mobile";
-      canvas.className="unity-mobile";
+
+      container.className = "unity-mobile";
+      canvas.className    = "unity-mobile";
+    } else {
+      /* ★ 新增：桌面初始小窗 960×600 ★ */
+      canvas.style.width  = "960px";
+      canvas.style.height = "600px";
     }
 
-    /* ========== Loading 进度 ========== */
-    loadingBar.style.display="block";
+    loadingBar.style.display = "block";
 
-    /* ========== 缩放函数（核心） ========== */
-    function applyScale(){
-      let scale;
-      if(document.fullscreenElement){
-        // 全屏：按窗口大小 letter‑box 等比放大到最大，不超过比例
-        scale=Math.min(window.innerWidth/BASE_W,window.innerHeight/BASE_H);
-      }else{
-        // 非全屏：固定 50%（≈960×540）
-        scale=0.5;
+    /* ========== 16∶9 Letterbox 适配函数 ========== */
+    function fitLetterbox() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const targetAspect = 16 / 9;
+      let cw = w, ch = w / targetAspect;     // 先按宽度等比缩放
+      if (ch > h) {                          // 高度溢出 → 以高度为基准
+        ch = h;
+        cw = h * targetAspect;
       }
-      container.style.transform=`scale(${scale})`;
-      container.style.transformOrigin=document.fullscreenElement?"center center":"top left";
+      canvas.style.width  = `${cw}px`;
+      canvas.style.height = `${ch}px`;
     }
 
     /* ========== 加载 Unity 实例 ========== */
-    const script=document.createElement("script");
-    script.src=loaderUrl;
-    script.onload=()=>{
+    const script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
       createUnityInstance(
-        canvas,config,(progress)=>progressBarFull.style.width=`${100*progress}%`
-      ).then((unityInstance)=>{
-        loadingBar.style.display="none";
+        canvas, config,
+        (progress) => progressBarFull.style.width = `${100 * progress}%`
+      ).then((unityInstance) => {
+        loadingBar.style.display = "none";
 
-        /* 全屏按钮 —— 进入全屏并 letter‑box */
-        fullscreenBtn.onclick=()=>{
-          unityInstance.SetFullscreen(1);       // 触发浏览器全屏
-          container.classList.add("fullscreen");
-          applyScale();
+        /* 初始化渲染目标：固定 1920×1080 */
+        if (unityInstance.SendMessage) {
+          unityInstance.SendMessage("__Internal", "SetCanvasSize", "1920,1080");
+        }
+
+        /* 全屏按钮 —— 进入全屏并开启黑边 letterbox */
+        fullscreenBtn.onclick = () => {
+          unityInstance.SetFullscreen(1);              // 浏览器全屏
+          container.classList.add("fullscreen");       // 让容器占满屏幕并黑底
+          fitLetterbox();                              // 初次计算
         };
 
         /* 退出全屏时还原 */
-        document.addEventListener("fullscreenchange",()=>{
-          if(!document.fullscreenElement){
+        document.addEventListener("fullscreenchange", () => {
+          if (!document.fullscreenElement) {
             container.classList.remove("fullscreen");
-            applyScale();
+            canvas.style.width  = "960px";             // 回到初始窗口尺寸
+            canvas.style.height = "600px";
           }
         });
 
-        /* 任何尺寸变化都重新缩放 */
-        window.addEventListener("resize",()=>{
-          if(document.fullscreenElement) applyScale();
+        /* 全屏状态下随窗口尺寸变化自适应 */
+        window.addEventListener("resize", () => {
+          if (document.fullscreenElement) fitLetterbox();
         });
-
-        /* 初始缩放（桌面 0.5）*/
-        applyScale();
       }).catch(alert);
     };
     document.body.appendChild(script);
