@@ -7,11 +7,41 @@
   <link rel="shortcut icon" href="TemplateData/favicon.ico">
   <link rel="stylesheet" href="TemplateData/style.css">
   <style>
-    /* 让容器占满屏幕并居中子元素，背景黑色形成黑边 */
+    body {
+      margin: 0;
+      background: #000; /* 全局黑色背景 */
+      color: white;
+      font-family: sans-serif;
+    }
+
     #unity-container.fullscreen {
-      position: fixed; inset: 0;
+      position: fixed;
+      inset: 0;
       background: #000;
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #unity-footer {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    #unity-build-title {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    #unity-webgl-logo {
+      width: 100px;
+      height: 30px;
+      margin: 0 auto;
+      background: url('TemplateData/unity-logo.png') center/contain no-repeat;
+    }
+
+    #unity-fullscreen-button {
+      display: none !important;
     }
   </style>
 </head>
@@ -30,14 +60,12 @@
     <div id="unity-warning"></div>
 
     <div id="unity-footer">
-      <div id="unity-webgl-logo"></div>
-      <div id="unity-fullscreen-button"></div>
       <div id="unity-build-title">IntraNote&nbsp;1.0</div>
+      <div id="unity-webgl-logo"></div>
     </div>
   </div>
 
   <script>
-    /* ========== DOM 变量 ========== */
     const container       = document.querySelector("#unity-container");
     const canvas          = document.querySelector("#unity-canvas");
     const loadingBar      = document.querySelector("#unity-loading-bar");
@@ -45,9 +73,10 @@
     const fullscreenBtn   = document.querySelector("#unity-fullscreen-button");
     const warningBanner   = document.querySelector("#unity-warning");
 
-    /* ========== 警告条 ========== */
     function unityShowBanner(msg, type) {
-      function toggle() { warningBanner.style.display = warningBanner.children.length ? "block" : "none"; }
+      function toggle() {
+        warningBanner.style.display = warningBanner.children.length ? "block" : "none";
+      }
       const div = document.createElement("div");
       div.innerHTML = msg;
       div.style = `background:${type==="error"?"red":"yellow"};padding:10px;`;
@@ -56,7 +85,6 @@
       toggle();
     }
 
-    /* ========== Unity 配置 ========== */
     const buildUrl  = "Build";
     const loaderUrl = `${buildUrl}/webgl-built.loader.js`;
     const config    = {
@@ -68,10 +96,9 @@
       productName:    "IntraNote 1.0",
       productVersion: "0.1",
       showBanner:     unityShowBanner,
-      matchWebGLToCanvasSize: false           // 我们自行控制渲染分辨率
+      matchWebGLToCanvasSize: false
     };
 
-    /* ========== 设备判定：移动端保持默认全屏 ========== */
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       const meta   = document.createElement("meta");
       meta.name    = "viewport";
@@ -81,20 +108,18 @@
       container.className = "unity-mobile";
       canvas.className    = "unity-mobile";
     } else {
-      /* ★ 新增：桌面初始小窗 960×600 ★ */
       canvas.style.width  = "1280px";
       canvas.style.height = "720px";
     }
 
     loadingBar.style.display = "block";
 
-    /* ========== 16∶9 Letterbox 适配函数 ========== */
     function fitLetterbox() {
       const w = window.innerWidth;
       const h = window.innerHeight;
       const targetAspect = 16 / 9;
-      let cw = w, ch = w / targetAspect;     // 先按宽度等比缩放
-      if (ch > h) {                          // 高度溢出 → 以高度为基准
+      let cw = w, ch = w / targetAspect;
+      if (ch > h) {
         ch = h;
         cw = h * targetAspect;
       }
@@ -102,7 +127,6 @@
       canvas.style.height = `${ch}px`;
     }
 
-    /* ========== 加载 Unity 实例 ========== */
     const script = document.createElement("script");
     script.src = loaderUrl;
     script.onload = () => {
@@ -112,28 +136,20 @@
       ).then((unityInstance) => {
         loadingBar.style.display = "none";
 
-        /* 初始化渲染目标：固定 1920×1080 */
         if (unityInstance.SendMessage) {
           unityInstance.SendMessage("__Internal", "SetCanvasSize", "1920,1080");
         }
 
-        /* 全屏按钮 —— 进入全屏并开启黑边 letterbox */
-        fullscreenBtn.onclick = () => {
-          unityInstance.SetFullscreen(1);              // 浏览器全屏
-          container.classList.add("fullscreen");       // 让容器占满屏幕并黑底
-          fitLetterbox();                              // 初次计算
-        };
+        // 全屏功能已隐藏，这里可以不绑定 fullscreenBtn
 
-        /* 退出全屏时还原 */
         document.addEventListener("fullscreenchange", () => {
           if (!document.fullscreenElement) {
             container.classList.remove("fullscreen");
-            canvas.style.width  = "1280px";             // 回到初始窗口尺寸
+            canvas.style.width  = "1280px";
             canvas.style.height = "720px";
           }
         });
 
-        /* 全屏状态下随窗口尺寸变化自适应 */
         window.addEventListener("resize", () => {
           if (document.fullscreenElement) fitLetterbox();
         });
