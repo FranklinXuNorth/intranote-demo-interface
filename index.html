@@ -13,12 +13,21 @@
       background: #000;
       display: flex; align-items: center; justify-content: center;
     }
+    /* 新增：事件捕获层 */
+    #event-capture-layer {
+      position: absolute;
+      z-index: 10;
+      display: none;
+    }
   </style>
 </head>
 
 <body>
   <div id="unity-container" class="unity-desktop">
     <canvas id="unity-canvas" width="1920" height="1080" tabindex="-1"></canvas>
+    
+    <!-- 新增：鼠标事件捕获层 -->
+    <div id="event-capture-layer"></div>
 
     <div id="unity-loading-bar">
       <div id="unity-logo"></div>
@@ -44,38 +53,7 @@
     const progressBarFull = document.querySelector("#unity-progress-bar-full");
     const fullscreenBtn   = document.querySelector("#unity-fullscreen-button");
     const warningBanner   = document.querySelector("#unity-warning");
-
-    /* ========== 鼠标坐标重映射 ========== */
-    let isFullscreen = false;
-    let unityInstance = null;
-
-    // 修改Unity的鼠标坐标获取函数
-    function patchUnityMouseInput() {
-      if (typeof Module !== 'undefined' && Module.canvas) {
-        // 保存原始的getBoundingClientRect
-        const originalGetBoundingClientRect = Module.canvas.getBoundingClientRect;
-        
-        Module.canvas.getBoundingClientRect = function() {
-          const rect = originalGetBoundingClientRect.call(this);
-          
-          if (isFullscreen) {
-            // 返回虚拟的1920x1080矩形，让Unity以为Canvas就是这个尺寸
-            return {
-              left: rect.left,
-              top: rect.top,
-              right: rect.left + 1920,
-              bottom: rect.top + 1080,
-              width: 1920,
-              height: 1080,
-              x: rect.x,
-              y: rect.y
-            };
-          }
-          
-          return rect;
-        };
-      }
-    }
+    const eventCapture    = document.querySelector("#event-capture-layer"); // 新增
 
     /* ========== 警告条 ========== */
     function unityShowBanner(msg, type) {
@@ -100,7 +78,7 @@
       productName:    "IntraNote 1.0",
       productVersion: "0.1",
       showBanner:     unityShowBanner,
-      matchWebGLToCanvasSize: false           // 我们自行控制渲染分辨率
+      matchWebGLToCanvasSize: false
     };
 
     /* ========== 设备判定：移动端保持默认全屏 ========== */
@@ -130,8 +108,54 @@
         ch = h;
         cw = h * targetAspect;
       }
+      // 确保整数尺寸避免亚像素偏移
+      cw = Math.floor(cw);
+      ch = Math.floor(ch);
       canvas.style.width  = `${cw}px`;
       canvas.style.height = `${ch}px`;
+      // 更新事件捕获层
+      eventCapture.style.width = `${cw}px`;
+      eventCapture.style.height = `${ch}px`;
+    }
+
+    /* ========== 鼠标坐标重映射函数 ========== */
+    function remapMouseEvent(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = 1920 / rect.width;
+      const scaleY = 1080 / rect.height;
+      
+      const remappedEvent = new MouseEvent(event.type, {
+        clientX: rect.left + event.offsetX,
+        clientY: rect.top + event.offsetY,
+        screenX: event.screenX,
+        screenY: event.screenY,
+        offsetX: event.offsetX * scaleX,
+        offsetY: event.offsetY * scaleY,
+        button: event.button,
+        buttons: event.buttons,
+        bubbles: true,
+        cancelable: true,
+        view: window
+      });
+      
+      canvas.dispatchEvent(remappedEvent);
+    }
+
+    /* ========== 初始化事件捕获层 ========== */
+    function initEventCapture() {
+      const events = [
+        'mousedown', 'mouseup', 'click',
+        'mousemove', 'mouseenter', 'mouseleave'
+      ];
+      
+      events.forEach(eventType => {
+        eventCapture.addEventListener(eventType, (e) => {
+          if (!document.fullscreenElement) return;
+          e.preventDefault();
+          e.stopPropagation();
+          remapMouseEvent(e);
+        });
+      });
     }
 
     /* ========== 加载 Unity 实例 ========== */
@@ -141,41 +165,38 @@
       createUnityInstance(
         canvas, config,
         (progress) => progressBarFull.style.width = `${100 * progress}%`
-      ).then((unityInstanceRef) => {
-        unityInstance = unityInstanceRef;
+      ).then((unityInstance) => {
         loadingBar.style.display = "none";
+        initEventCapture(); // 初始化事件捕获
 
         /* 初始化渲染目标：固定 1920×1080 */
         if (unityInstance.SendMessage) {
           unityInstance.SendMessage("__Internal", "SetCanvasSize", "1920,1080");
         }
 
-        // 延迟应用鼠标输入补丁，确保Unity完全加载
-        setTimeout(() => {
-          patchUnityMouseInput();
-        }, 1000);
-
         /* 全屏按钮 —— 进入全屏并开启黑边 letterbox */
         fullscreenBtn.onclick = () => {
-          unityInstance.SetFullscreen(1);              // 浏览器全屏
-          container.classList.add("fullscreen");       // 让容器占满屏幕并黑底
-          isFullscreen = true;                         // 标记全屏状态
-          fitLetterbox();                              // 初次计算
+          unityInstance.SetFullscreen(1);
+          container.classList.add("fullscreen");
+          fitLetterbox();
+          eventCapture.style.display = "block"; // 激活事件捕获层
         };
 
         /* 退出全屏时还原 */
         document.addEventListener("fullscreenchange", () => {
           if (!document.fullscreenElement) {
             container.classList.remove("fullscreen");
-            isFullscreen = false;                      // 取消全屏状态
-            canvas.style.width  = "960px";             // 回到初始窗口尺寸
+            canvas.style.width  = "960px";
             canvas.style.height = "600px";
+            eventCapture.style.display = "none"; // 隐藏事件捕获层
           }
         });
 
         /* 全屏状态下随窗口尺寸变化自适应 */
         window.addEventListener("resize", () => {
-          if (document.fullscreenElement) fitLetterbox();
+          if (document.fullscreenElement) {
+            fitLetterbox();
+          }
         });
       }).catch(alert);
     };
