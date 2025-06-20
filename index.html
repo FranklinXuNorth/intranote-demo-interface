@@ -45,6 +45,67 @@
     const fullscreenBtn   = document.querySelector("#unity-fullscreen-button");
     const warningBanner   = document.querySelector("#unity-warning");
 
+    /* ========== 鼠标坐标重映射 ========== */
+    let isFullscreen = false;
+    let originalMouseEventHandler = null;
+
+    function remapMouseCoordinates(event) {
+      if (!isFullscreen) return event;
+      
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = 1920 / rect.width;
+      const scaleY = 1080 / rect.height;
+      
+      // 创建新的事件对象，重新映射坐标
+      const newEvent = new MouseEvent(event.type, {
+        bubbles: event.bubbles,
+        cancelable: event.cancelable,
+        view: event.view,
+        detail: event.detail,
+        screenX: event.screenX,
+        screenY: event.screenY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey,
+        button: event.button,
+        buttons: event.buttons,
+        relatedTarget: event.relatedTarget
+      });
+      
+      // 覆盖坐标属性
+      Object.defineProperty(newEvent, 'offsetX', {
+        value: (event.offsetX || (event.clientX - rect.left)) * scaleX,
+        writable: false
+      });
+      Object.defineProperty(newEvent, 'offsetY', {
+        value: (event.offsetY || (event.clientY - rect.top)) * scaleY,
+        writable: false
+      });
+      
+      return newEvent;
+    }
+
+    function setupMouseRemapping() {
+      // 拦截鼠标事件
+      const mouseEvents = ['mousedown', 'mouseup', 'mousemove', 'click'];
+      
+      mouseEvents.forEach(eventType => {
+        canvas.addEventListener(eventType, function(event) {
+          if (isFullscreen) {
+            event.stopImmediatePropagation();
+            const remappedEvent = remapMouseCoordinates(event);
+            // 重新派发事件，但跳过我们的处理器
+            setTimeout(() => {
+              canvas.dispatchEvent(remappedEvent);
+            }, 0);
+          }
+        }, true); // 使用捕获阶段
+      });
+    }
+
     /* ========== 警告条 ========== */
     function unityShowBanner(msg, type) {
       function toggle() { warningBanner.style.display = warningBanner.children.length ? "block" : "none"; }
@@ -117,10 +178,14 @@
           unityInstance.SendMessage("__Internal", "SetCanvasSize", "1920,1080");
         }
 
+        // 设置鼠标坐标重映射
+        setupMouseRemapping();
+
         /* 全屏按钮 —— 进入全屏并开启黑边 letterbox */
         fullscreenBtn.onclick = () => {
           unityInstance.SetFullscreen(1);              // 浏览器全屏
           container.classList.add("fullscreen");       // 让容器占满屏幕并黑底
+          isFullscreen = true;                         // 标记全屏状态
           fitLetterbox();                              // 初次计算
         };
 
@@ -128,6 +193,7 @@
         document.addEventListener("fullscreenchange", () => {
           if (!document.fullscreenElement) {
             container.classList.remove("fullscreen");
+            isFullscreen = false;                      // 取消全屏状态
             canvas.style.width  = "960px";             // 回到初始窗口尺寸
             canvas.style.height = "600px";
           }
