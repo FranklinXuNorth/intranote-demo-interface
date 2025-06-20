@@ -47,63 +47,34 @@
 
     /* ========== 鼠标坐标重映射 ========== */
     let isFullscreen = false;
-    let originalMouseEventHandler = null;
+    let unityInstance = null;
 
-    function remapMouseCoordinates(event) {
-      if (!isFullscreen) return event;
-      
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = 1920 / rect.width;
-      const scaleY = 1080 / rect.height;
-      
-      // 创建新的事件对象，重新映射坐标
-      const newEvent = new MouseEvent(event.type, {
-        bubbles: event.bubbles,
-        cancelable: event.cancelable,
-        view: event.view,
-        detail: event.detail,
-        screenX: event.screenX,
-        screenY: event.screenY,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        ctrlKey: event.ctrlKey,
-        altKey: event.altKey,
-        shiftKey: event.shiftKey,
-        metaKey: event.metaKey,
-        button: event.button,
-        buttons: event.buttons,
-        relatedTarget: event.relatedTarget
-      });
-      
-      // 覆盖坐标属性
-      Object.defineProperty(newEvent, 'offsetX', {
-        value: (event.offsetX || (event.clientX - rect.left)) * scaleX,
-        writable: false
-      });
-      Object.defineProperty(newEvent, 'offsetY', {
-        value: (event.offsetY || (event.clientY - rect.top)) * scaleY,
-        writable: false
-      });
-      
-      return newEvent;
-    }
-
-    function setupMouseRemapping() {
-      // 拦截鼠标事件
-      const mouseEvents = ['mousedown', 'mouseup', 'mousemove', 'click'];
-      
-      mouseEvents.forEach(eventType => {
-        canvas.addEventListener(eventType, function(event) {
+    // 修改Unity的鼠标坐标获取函数
+    function patchUnityMouseInput() {
+      if (typeof Module !== 'undefined' && Module.canvas) {
+        // 保存原始的getBoundingClientRect
+        const originalGetBoundingClientRect = Module.canvas.getBoundingClientRect;
+        
+        Module.canvas.getBoundingClientRect = function() {
+          const rect = originalGetBoundingClientRect.call(this);
+          
           if (isFullscreen) {
-            event.stopImmediatePropagation();
-            const remappedEvent = remapMouseCoordinates(event);
-            // 重新派发事件，但跳过我们的处理器
-            setTimeout(() => {
-              canvas.dispatchEvent(remappedEvent);
-            }, 0);
+            // 返回虚拟的1920x1080矩形，让Unity以为Canvas就是这个尺寸
+            return {
+              left: rect.left,
+              top: rect.top,
+              right: rect.left + 1920,
+              bottom: rect.top + 1080,
+              width: 1920,
+              height: 1080,
+              x: rect.x,
+              y: rect.y
+            };
           }
-        }, true); // 使用捕获阶段
-      });
+          
+          return rect;
+        };
+      }
     }
 
     /* ========== 警告条 ========== */
@@ -170,7 +141,8 @@
       createUnityInstance(
         canvas, config,
         (progress) => progressBarFull.style.width = `${100 * progress}%`
-      ).then((unityInstance) => {
+      ).then((unityInstanceRef) => {
+        unityInstance = unityInstanceRef;
         loadingBar.style.display = "none";
 
         /* 初始化渲染目标：固定 1920×1080 */
@@ -178,8 +150,10 @@
           unityInstance.SendMessage("__Internal", "SetCanvasSize", "1920,1080");
         }
 
-        // 设置鼠标坐标重映射
-        setupMouseRemapping();
+        // 延迟应用鼠标输入补丁，确保Unity完全加载
+        setTimeout(() => {
+          patchUnityMouseInput();
+        }, 1000);
 
         /* 全屏按钮 —— 进入全屏并开启黑边 letterbox */
         fullscreenBtn.onclick = () => {
