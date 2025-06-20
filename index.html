@@ -82,8 +82,8 @@
       canvas.className    = "unity-mobile";
     } else {
       /* ★ 新增：桌面初始小窗 960×600 ★ */
-      canvas.style.width  = "1920px";
-      canvas.style.height = "1080px";
+      canvas.style.width  = "1280px";
+      canvas.style.height = "720px";
     }
 
     loadingBar.style.display = "block";
@@ -128,8 +128,8 @@
         document.addEventListener("fullscreenchange", () => {
           if (!document.fullscreenElement) {
             container.classList.remove("fullscreen");
-            canvas.style.width  = "1920px";             // 回到初始窗口尺寸
-            canvas.style.height = "1080px";
+            canvas.style.width  = "1280px";             // 回到初始窗口尺寸
+            canvas.style.height = "720px";
           }
         });
 
