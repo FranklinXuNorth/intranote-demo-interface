@@ -80,6 +80,10 @@
 
       container.className = "unity-mobile";
       canvas.className    = "unity-mobile";
+    } else {
+      /* ★ 新增：桌面初始小窗 960×600 ★ */
+      canvas.style.width  = "960px";
+      canvas.style.height = "600px";
     }
 
     loadingBar.style.display = "block";
