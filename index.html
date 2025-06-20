@@ -67,7 +67,6 @@
         productName: "IntraNote",
         productVersion: "0.1",
         showBanner: unityShowBanner,
-        matchWebGLToCanvasSize: false,
       };
 
       // By default, Unity keeps WebGL canvas render target size matched with
@@ -104,25 +103,18 @@
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
-    createUnityInstance(canvas, config, (progress) => {
-      progressBarFull.style.width = 100 * progress + "%";
-    }).then((unityInstance) => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+              }).then((unityInstance) => {
+                loadingBar.style.display = "none";
+                fullscreenButton.onclick = () => {
+                  unityInstance.SetFullscreen(1);
+                };
+              }).catch((message) => {
+                alert(message);
+              });
+            };
 
-      /* 👇 这一段是新增的 */
-      document.addEventListener('fullscreenchange', () => {
-        if (document.fullscreenElement) {              // 进入全屏
-          unityInstance.Module.setCanvasSize(1920, 1080, false);
-          canvas.style.width  = "1920px";
-          canvas.style.height = "1080px";
-        }
-      });
-
-      loadingBar.style.display = "none";
-      fullscreenButton.onclick = () => {
-        unityInstance.SetFullscreen(1);
-      };
-    });
-  };
       document.body.appendChild(script);
 
     </script>
