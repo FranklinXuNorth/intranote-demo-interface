@@ -45,6 +45,25 @@
     const fullscreenBtn   = document.querySelector("#unity-fullscreen-button");
     const warningBanner   = document.querySelector("#unity-warning");
 
+    /* ★★★ ① 追加：缩放补偿函数 ★★★ */
+    function injectPointerFix() {
+      // 每次调用都重新计算（应对 Gather / Meet 动态缩放）
+      const rect   = canvas.getBoundingClientRect();
+      const scaleX = rect.width  / canvas.width;   // e.g. 0.8
+      const scaleY = rect.height / canvas.height;  // 往往二者相等
+
+      // 若几乎没缩放就不处理
+      if (Math.abs(scaleX - 1) < 0.01 && Math.abs(scaleY - 1) < 0.01) return;
+
+      // 捕获阶段修改 clientX / clientY，再交给 Unity
+      const types = ["pointerdown","pointermove","pointerup","click"];
+      function rebase(e) {
+        e.clientX = (e.clientX - rect.left) / scaleX + rect.left;
+        e.clientY = (e.clientY - rect.top ) / scaleY + rect.top;
+      }
+      types.forEach(t => canvas.addEventListener(t, rebase, true));
+    }
+
     /* ========== 警告条 ========== */
     function unityShowBanner(msg, type) {
       function toggle() { warningBanner.style.display = warningBanner.children.length ? "block" : "none"; }
@@ -100,6 +119,7 @@
       }
       canvas.style.width  = `${cw}px`;
       canvas.style.height = `${ch}px`;
+      injectPointerFix();   
     }
 
     /* ========== 加载 Unity 实例 ========== */
@@ -111,6 +131,7 @@
         (progress) => progressBarFull.style.width = `${100 * progress}%`
       ).then((unityInstance) => {
         loadingBar.style.display = "none";
+        injectPointerFix();  
 
         /* 初始化渲染目标：固定 1920×1080 */
         if (unityInstance.SendMessage) {
