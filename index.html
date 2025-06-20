@@ -108,8 +108,8 @@
       container.className = "unity-mobile";
       canvas.className    = "unity-mobile";
     } else {
-      canvas.style.width  = "1280px";
-      canvas.style.height = "720px";
+      canvas.style.width  = "1600px";
+      canvas.style.height = "900px";
     }
 
     loadingBar.style.display = "block";
@@ -145,8 +145,8 @@
         document.addEventListener("fullscreenchange", () => {
           if (!document.fullscreenElement) {
             container.classList.remove("fullscreen");
-            canvas.style.width  = "1280px";
-            canvas.style.height = "720px";
+            canvas.style.width  = "1600px";
+            canvas.style.height = "900px";
           }
         });
 
