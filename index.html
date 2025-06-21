@@ -43,6 +43,20 @@
     #unity-fullscreen-button {
       display: none !important;
     }
+
+    /* 加这几行即可 */
+    #unity-loading-bar{
+      display:flex;           /* 纵向排布 */
+      flex-direction:column;
+      align-items:center;     /* 横向居中 */
+    }
+    #unity-wait-hint{
+      color:#fff;
+      font-size:14px;
+      margin-top:8px;
+      text-align:center;
+      pointer-events:none;    /* 不挡鼠标 */
+    }
   </style>
 </head>
 
@@ -57,8 +71,8 @@
       </div>
     </div>
 
-    <p id="unity-wait-hint" style="text-align:center; color:white; font-size:14px; margin-top: 10px;">
-      Loading may take around 30 seconds. Thanks for your patience!
+    <p id="unity-wait-hint">
+      This might take about 10 seconds to load — thanks for hanging in there!
     </p>
 
     <div id="unity-warning"></div>
