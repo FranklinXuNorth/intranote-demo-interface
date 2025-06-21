@@ -152,6 +152,8 @@
       ).then((unityInstance) => {
         loadingBar.style.display = "none";
 
+        document.getElementById("unity-wait-hint").style.display = "none";
+
         if (unityInstance.SendMessage) {
           unityInstance.SendMessage("__Internal", "SetCanvasSize", "1920,1080");
         }
